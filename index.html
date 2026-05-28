@@ -15,6 +15,9 @@
     <!-- Memuat Babel untuk menerjemahkan JSX di dalam Browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- TAMBAHAN BARU: Memuat Library Page-Flip untuk Animasi Realistis ala FlipHTML5 -->
+    <script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
     <style>
         body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         .perspective-1000 { perspective: 1000px; }
@@ -207,51 +210,56 @@
         }
 
         function PreviewStep({ files }) {
-            // Logika untuk memastikan halaman berjumlah genap (karena buku ada kiri dan kanan)
+            const bookRef = useRef(null);
+            const pageFlipRef = useRef(null);
             const [currentPage, setCurrentPage] = useState(0); 
-            // Kita atur agar total halaman bisa memuat semua file gambar
-            const totalPages = files.length > 0 ? (files.length % 2 === 0 ? files.length : files.length + 1) : 2;
             const [aiBgEnabled, setAiBgEnabled] = useState(false);
 
-            const nextPage = () => setCurrentPage(p => Math.min(p + 2, totalPages - 2));
-            const prevPage = () => setCurrentPage(p => Math.max(p - 2, 0));
+            useEffect(() => {
+                // Inisialisasi St.PageFlip untuk efek melipat halaman (drag & peel) 
+                // persis seperti FlipHTML5 saat komponen dimuat
+                if (bookRef.current && files.length > 0 && !pageFlipRef.current) {
+                    pageFlipRef.current = new St.PageFlip(bookRef.current, {
+                        width: 400,          // Lebar dasar 1 halaman
+                        height: 550,         // Tinggi dasar 1 halaman
+                        size: "stretch",     // Responsif menyesuaikan layar
+                        minWidth: 300,
+                        maxWidth: 1000,
+                        minHeight: 400,
+                        maxHeight: 1000,
+                        maxShadowOpacity: 0.5, // Bayangan lipatan realistis
+                        showCover: true,       // Halaman pertama dan terakhir jadi cover (keras)
+                        mobileScrollSupport: false
+                    });
 
-            // Mengambil file untuk halaman kiri dan kanan berdasarkan index yang aktif
-            const leftPageFile = files[currentPage];
-            const rightPageFile = files[currentPage + 1];
+                    // Muat elemen HTML halaman kita ke dalam sistem PageFlip
+                    const pages = bookRef.current.querySelectorAll('.flip-page');
+                    pageFlipRef.current.loadFromHTML(pages);
 
-            // Fungsi pembantu untuk merender isi halaman
-            const renderPageContent = (file, pageNum, isLeft) => {
-                if (!file) {
-                    return (
-                        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/50 p-6 text-center">
-                            <ImageIcon className="w-12 h-12 text-slate-200 mb-4" />
-                            <p className="text-slate-400 font-medium text-sm">Halaman Kosong</p>
-                            <span className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">Hal {pageNum}</span>
-                        </div>
-                    );
+                    // Dengarkan event saat halaman dibalik untuk update nomor halaman di bawah
+                    pageFlipRef.current.on('flip', (e) => {
+                        setCurrentPage(e.data); // e.data berisi nomor halaman saat ini
+                    });
                 }
 
-                if (file.isImage) {
-                    return (
-                        <div className="w-full h-full relative group bg-black rounded-sm overflow-hidden flex items-center justify-center">
-                            {/* Menampilkan Gambar ASLI yang diunggah */}
-                            <img src={file.url} alt={`Halaman ${pageNum}`} className="w-full h-full object-cover" />
-                            <span className="absolute bottom-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
-                                Hal {pageNum}
-                            </span>
-                        </div>
-                    );
-                }
+                // Bersihkan memori saat pengguna keluar dari pratinjau
+                return () => {
+                    if (pageFlipRef.current) {
+                        pageFlipRef.current.destroy();
+                        pageFlipRef.current = null;
+                    }
+                };
+            }, [files]);
 
-                return (
-                    <div className="flex-1 flex flex-col items-center justify-center bg-red-50 p-6 text-center">
-                        <p className="text-red-500 font-medium text-sm mb-2">Hanya mendukung format Gambar</p>
-                        <p className="text-slate-600 text-xs">File PDF memerlukan backend server untuk dirender di preview ini.</p>
-                        <span className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">Hal {pageNum}</span>
-                    </div>
-                );
+            // Fungsi tombol navigasi
+            const nextPage = () => {
+                if(pageFlipRef.current) pageFlipRef.current.flipNext();
             };
+            const prevPage = () => {
+                if(pageFlipRef.current) pageFlipRef.current.flipPrev();
+            };
+
+            const totalPages = files.length;
 
             return (
                 <div className="flex-1 flex overflow-hidden animate-fade-in bg-slate-200">
@@ -262,37 +270,65 @@
                         }`}></div>
 
                         <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-white/50 flex items-center gap-4 z-20">
-                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors"><Maximize2 className="w-4 h-4" /></button>
+                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors" title="Fullscreen"><Maximize2 className="w-4 h-4" /></button>
                             <div className="w-px h-4 bg-slate-300"></div>
-                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors"><Share2 className="w-4 h-4" /></button>
+                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors" title="Bagikan"><Share2 className="w-4 h-4" /></button>
                         </div>
 
-                        {/* Viewer 3D */}
-                        <div className="flex-1 flex items-center justify-center p-4 relative z-10 perspective-1000">
-                            <div className="relative flex shadow-[0_30px_60px_rgba(0,0,0,0.3)] rounded-sm transition-transform duration-500 hover:scale-[1.02]">
+                        {/* Viewer 3D PageFlip */}
+                        <div className="flex-1 flex items-center justify-center p-4 relative z-10 w-full">
+                            {/* Kontainer Utama Buku */}
+                            <div ref={bookRef} className="relative shadow-2xl transition-transform duration-500">
                                 
-                                {/* Halaman Kiri */}
-                                <div className="w-[300px] sm:w-[350px] md:w-[450px] aspect-[1/1.414] bg-white border-r border-slate-300 rounded-l-sm relative origin-right flex flex-col book-shadow-left overflow-hidden">
-                                    {renderPageContent(leftPageFile, currentPage + 1, true)}
-                                </div>
+                                {/* Loop semua gambar yang diunggah untuk dijadikan halaman */}
+                                {files.map((file, index) => {
+                                    // Halaman pertama dan terakhir dibuat kaku (seperti sampul)
+                                    const isCover = index === 0 || index === files.length - 1;
+                                    
+                                    return (
+                                        <div 
+                                            key={index} 
+                                            className="flip-page bg-white overflow-hidden" 
+                                            data-density={isCover ? "hard" : "soft"}
+                                        >
+                                            {file.isImage ? (
+                                                <div className="w-full h-full relative group">
+                                                    {/* Gambar diposisikan penuhi halaman (object-cover) */}
+                                                    <img src={file.url} alt={`Halaman ${index + 1}`} className="w-full h-full object-cover pointer-events-none select-none" />
+                                                    
+                                                    {/* Efek bayangan lipatan bawaan di dekat jahitan buku */}
+                                                    <div className="absolute inset-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.05)] pointer-events-none"></div>
+                                                    
+                                                    {/* Nomor Halaman (muncul saat di hover) */}
+                                                    <span className="absolute bottom-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        Hal {index + 1}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex-1 w-full h-full flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+                                                    <p className="text-red-500 font-medium text-sm mb-2">Hanya mendukung format Gambar</p>
+                                                    <span className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">Hal {index + 1}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                                 
-                                {/* Halaman Kanan */}
-                                <div className="w-[300px] sm:w-[350px] md:w-[450px] aspect-[1/1.414] bg-white rounded-r-sm relative flex flex-col book-shadow-right overflow-hidden">
-                                    {renderPageContent(rightPageFile, currentPage + 2, false)}
-                                </div>
-                                
-                                {/* Garis Buku (Binding) di Tengah */}
-                                <div className="absolute inset-y-0 left-1/2 w-12 -ml-6 bg-gradient-to-r from-black/5 via-black/20 to-black/5 z-20 pointer-events-none"></div>
                             </div>
                         </div>
 
                         {/* Kontrol Navigasi Bawah */}
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 z-20 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full shadow-lg border border-slate-200">
-                            <button onClick={prevPage} disabled={currentPage <= 0} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-30"><ChevronLeft className="w-6 h-6"/></button>
-                            <span className="text-sm font-bold text-slate-700 w-32 text-center font-mono">
-                                Hal {currentPage + 1}-{currentPage + 2} <span className="text-slate-400 text-xs">/ {totalPages}</span>
+                            <button onClick={prevPage} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all"><ChevronLeft className="w-6 h-6"/></button>
+                            <span className="text-sm font-bold text-slate-700 w-24 text-center font-mono">
+                                Hal {currentPage + 1} <span className="text-slate-400 text-xs">/ {totalPages}</span>
                             </span>
-                            <button onClick={nextPage} disabled={currentPage >= totalPages - 2} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-30"><ChevronRight className="w-6 h-6"/></button>
+                            <button onClick={nextPage} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all"><ChevronRight className="w-6 h-6"/></button>
+                        </div>
+                        
+                        {/* Instruksi Drag untuk pengguna */}
+                        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 text-slate-500 text-xs font-medium tracking-wide flex items-center gap-2 animate-pulse">
+                            Tarik ujung halaman untuk membalik
                         </div>
                     </div>
 
@@ -321,7 +357,7 @@
                                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                                     {files.map((f, i) => (
                                         <div key={i} className="flex items-center gap-3 bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
-                                            <div className="w-10 h-10 bg-slate-100 rounded overflow-hidden">
+                                            <div className="w-10 h-10 bg-slate-100 rounded overflow-hidden shrink-0">
                                                 {f.isImage ? <img src={f.url} className="w-full h-full object-cover"/> : <FileImage className="w-6 h-6 m-2 text-slate-300"/>}
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -332,6 +368,12 @@
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                        
+                        <div className="p-5 border-t border-slate-100 bg-slate-50">
+                            <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
+                                Simpan & Publikasikan
+                            </button>
                         </div>
                     </div>
                 </div>
