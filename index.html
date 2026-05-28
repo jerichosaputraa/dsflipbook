@@ -1,398 +1,345 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  UploadCloud, FileImage, FileText, Sparkles, Loader2, 
-  ChevronLeft, ChevronRight, Settings, Download, Image as ImageIcon,
-  Wand2, Maximize2, Share2, CheckCircle2
-} from 'lucide-react';
-
-export default function App() {
-  // Alur aplikasi: 'upload' -> 'processing' -> 'preview'
-  const [appStep, setAppStep] = useState('upload'); 
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  
-  // Fungsi untuk menangani saat file dipilih/diunggah
-  const handleFileUpload = (files) => {
-    // Simulasi menyimpan data file
-    const fileArray = Array.from(files).map(file => ({
-      name: file.name,
-      type: file.type,
-      size: (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-    }));
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Flipbook Maker - Real Image Version</title>
     
-    setUploadedFiles(fileArray);
-    setAppStep('processing'); // Pindah ke tahap pemrosesan AI
-  };
+    <!-- Memuat Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Memuat React dan ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Memuat Babel untuk menerjemahkan JSX di dalam Browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-purple-200 flex flex-col">
-      {/* Top Navbar Minimalis */}
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10">
-        <div className="flex items-center gap-2">
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-2 rounded-xl shadow-sm">
-            <Sparkles className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900">
-            AIFlip<span className="text-purple-600">Maker</span>
-          </span>
-        </div>
+    <style>
+        body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .perspective-1000 { perspective: 1000px; }
         
-        {appStep === 'preview' && (
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setAppStep('upload')}
-              className="text-sm font-medium text-slate-500 hover:text-slate-900 px-4 py-2"
-            >
-              Buat Baru
-            </button>
-            <button className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-all">
-              <Download className="w-4 h-4" /> Export Flipbook
-            </button>
-          </div>
-        )}
-      </nav>
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .animate-zoom-in { animation: zoomIn 0.3s ease-out forwards; }
+        
+        /* Bayangan lipatan buku yang realistis */
+        .book-shadow-left { box-shadow: inset -15px 0 30px rgba(0,0,0,0.1); }
+        .book-shadow-right { box-shadow: inset 15px 0 30px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 selection:bg-purple-200">
+    
+    <div id="root"></div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative">
-        {appStep === 'upload' && <UploadStep onUpload={handleFileUpload} />}
-        {appStep === 'processing' && <ProcessingStep onComplete={() => setAppStep('preview')} />}
-        {appStep === 'preview' && <PreviewStep files={uploadedFiles} />}
-      </main>
-    </div>
-  );
-}
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-function UploadStep({ onUpload }) {
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef(null);
+        const Icon = ({ d, d2, d3, className = "w-6 h-6", children }) => (
+            <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {d && <path d={d} />}
+                {d2 && <path d={d2} />}
+                {d3 && <path d={d3} />}
+                {children}
+            </svg>
+        );
 
-  const onDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+        const Sparkles = ({className}) => <Icon className={className} d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>;
+        const Download = ({className}) => <Icon className={className} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></Icon>;
+        const UploadCloud = ({className}) => <Icon className={className} d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" d2="M12 12v9" d3="m16 16-4-4-4 4"/>;
+        const FileImage = ({className}) => <Icon className={className} d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"><polyline points="14 2 14 8 20 8"/><circle cx="10" cy="13" r="2"/><path d="m20 17-1.09-1.09a2 2 0 0 0-2.82 0L10 22"/></Icon>;
+        const ImageIcon = ({className}) => <Icon className={className} d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/></Icon>;
+        const Wand2 = ({className}) => <Icon className={className} d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" d2="m14 7 3 3" d3="M5 6v4"><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></Icon>;
+        const Maximize2 = ({className}) => <Icon className={className} d=""><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></Icon>;
+        const Share2 = ({className}) => <Icon className={className} d=""><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></Icon>;
+        const ChevronLeft = ({className}) => <Icon className={className} d="m15 18-6-6 6-6"/>;
+        const ChevronRight = ({className}) => <Icon className={className} d="m9 18 6-6-6-6"/>;
+        const Settings = ({className}) => <Icon className={className} d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"><circle cx="12" cy="12" r="3"/></Icon>;
+        const CheckCircle2 = ({className}) => <Icon className={className} d="m9 12 2 2 4-4"><circle cx="12" cy="12" r="10"/></Icon>;
 
-  const onDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      onUpload(e.dataTransfer.files);
-    }
-  };
-
-  return (
-    <div className="flex-1 flex items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="max-w-3xl w-full">
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
-            Ubah File Menjadi Flipbook Interaktif
-          </h1>
-          <p className="text-lg text-slate-500 max-w-xl mx-auto">
-            Unggah file PDF atau kumpulan gambar (JPG/PNG). AI kami akan menyusun, mengoptimalkan, dan membuat animasi membalik halaman secara otomatis.
-          </p>
-        </div>
-
-        {/* Drag & Drop Zone */}
-        <div 
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          onClick={() => fileInputRef.current.click()}
-          className={`
-            border-3 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all duration-200 group
-            ${isDragging 
-              ? 'border-purple-500 bg-purple-50/50 scale-[1.02]' 
-              : 'border-slate-300 bg-white hover:border-purple-400 hover:bg-slate-50 shadow-sm'}
-          `}
-        >
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={(e) => onUpload(e.target.files)} 
-            className="hidden" 
-            multiple 
-            accept=".pdf, .png, .jpg, .jpeg"
-          />
-          
-          <div className="flex justify-center mb-6">
-            <div className={`p-5 rounded-full transition-colors ${isDragging ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-500 group-hover:bg-purple-50 group-hover:text-purple-600'}`}>
-              <UploadCloud className="w-12 h-12" />
-            </div>
-          </div>
-          
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">
-            Tarik & Lepas File di Sini
-          </h3>
-          <p className="text-slate-500 mb-8">
-            atau klik untuk memilih dari perangkat Anda (PDF, PNG, JPG)
-          </p>
-          
-          <div className="flex items-center justify-center gap-6 text-sm font-medium text-slate-400">
-            <span className="flex items-center gap-1.5"><FileText className="w-4 h-4"/> Mendukung PDF</span>
-            <span className="flex items-center gap-1.5"><FileImage className="w-4 h-4"/> Mendukung Gambar</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProcessingStep({ onComplete }) {
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("Menganalisis file yang diunggah...");
-
-  useEffect(() => {
-    const statuses = [
-      "Menganalisis file yang diunggah...",
-      "AI sedang menyusun tata letak halaman...",
-      "Meningkatkan resolusi gambar (Upscaling)...",
-      "Merender efek 3D flipbook...",
-      "Menyelesaikan sentuhan akhir..."
-    ];
-
-    let currentProgress = 0;
-    const interval = setInterval(() => {
-      currentProgress += 1.5;
-      if (currentProgress > 100) currentProgress = 100;
-      setProgress(currentProgress);
-
-      // Ubah teks status berdasarkan persentase
-      const statusIndex = Math.min(
-        Math.floor((currentProgress / 100) * statuses.length),
-        statuses.length - 1
-      );
-      setStatus(statuses[statusIndex]);
-
-      if (currentProgress === 100) {
-        clearInterval(interval);
-        setTimeout(() => onComplete(), 800); // Jeda sebentar sebelum pindah
-      }
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, [onComplete]);
-
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 animate-in zoom-in-95 duration-300">
-      <div className="w-24 h-24 relative mb-8">
-        <div className="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
-        <div 
-          className="absolute inset-0 border-4 border-purple-600 rounded-full border-t-transparent animate-spin"
-          style={{ animationDuration: '1.5s' }}
-        ></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Sparkles className="w-8 h-8 text-purple-600 animate-pulse" />
-        </div>
-      </div>
-      
-      <h2 className="text-2xl font-bold text-slate-900 mb-2">AI Sedang Bekerja</h2>
-      <p className="text-slate-500 mb-8 font-medium animate-pulse">{status}</p>
-
-      {/* Progress Bar */}
-      <div className="w-full max-w-md bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden">
-        <div 
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 h-2.5 rounded-full transition-all duration-200 ease-out" 
-          style={{ width: `${progress}%` }}
-        ></div>
-      </div>
-      <span className="text-sm font-bold text-slate-700">{Math.round(progress)}%</span>
-    </div>
-  );
-}
-
-function PreviewStep({ files }) {
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = 12; // Simulasi total halaman
-  const [aiBgEnabled, setAiBgEnabled] = useState(false);
-
-  const nextPage = () => setCurrentPage(p => Math.min(p + 2, totalPages));
-  const prevPage = () => setCurrentPage(p => Math.max(p - 2, 1));
-
-  return (
-    <div className="flex-1 flex overflow-hidden animate-in fade-in bg-slate-100">
-      
-      {/* Area Utama: Canvas Flipbook */}
-      <div className="flex-1 flex flex-col relative">
-        {/* Background Layer (Berubah jika AI Background aktif) */}
-        <div className={`absolute inset-0 transition-all duration-1000 ${
-          aiBgEnabled 
-            ? 'bg-[url("https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2000&auto=format&fit=crop")] bg-cover bg-center opacity-40' 
-            : 'bg-slate-200/50'
-        }`}></div>
-
-        {/* Studio Toolbar (Atas) */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-white/50 flex items-center gap-4 z-20">
-          <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors" title="Layar Penuh">
-            <Maximize2 className="w-4 h-4" />
-          </button>
-          <div className="w-px h-4 bg-slate-300"></div>
-          <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors" title="Bagikan">
-            <Share2 className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* 3D Flipbook Viewer (Simulasi) */}
-        <div className="flex-1 flex items-center justify-center p-4 relative z-10 perspective-1000">
-          
-          <div className="relative flex shadow-[0_20px_50px_rgba(0,0,0,0.2)] rounded-sm transition-transform duration-500 hover:scale-[1.02]">
+        function App() {
+            const [appStep, setAppStep] = useState('upload'); 
+            const [uploadedFiles, setUploadedFiles] = useState([]);
             
-            {/* Halaman Kiri */}
-            <div className="w-[280px] sm:w-[350px] md:w-[450px] aspect-[1/1.4] bg-white border-r border-slate-200 p-8 md:p-12 shadow-[inset_-15px_0_30px_rgba(0,0,0,0.04)] rounded-l-sm relative origin-right flex flex-col">
-              {currentPage === 1 ? (
-                // Cover Page Layout
-                <div className="flex-1 flex flex-col items-center justify-center text-center">
-                  <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mb-6">
-                    <FileImage className="w-10 h-10 text-purple-600" />
-                  </div>
-                  <h1 className="text-3xl font-bold text-slate-900 mb-4 uppercase tracking-wider">
-                    {files.length > 0 ? files[0].name.replace(/\.[^/.]+$/, "") : "Katalog Digital"}
-                  </h1>
-                  <div className="w-16 h-1 bg-purple-500 mx-auto mb-4"></div>
-                  <p className="text-slate-500">Dioptimalkan oleh AI</p>
+            const handleFileUpload = (files) => {
+                // LOGIKA NYATA: Membaca file dan membuat URL objek untuk menampilkannya
+                const fileArray = Array.from(files).map(file => {
+                    return {
+                        name: file.name,
+                        type: file.type,
+                        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                        // Membuat URL lokal agar browser bisa menampilkan gambar/file yang diunggah
+                        url: URL.createObjectURL(file),
+                        isImage: file.type.startsWith('image/')
+                    };
+                });
+                
+                setUploadedFiles(fileArray);
+                setAppStep('processing');
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center z-10 sticky top-0">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-2 rounded-xl shadow-sm">
+                                <Sparkles className="h-5 w-5 text-white" />
+                            </div>
+                            <span className="font-bold text-xl tracking-tight text-slate-900">
+                                AIFlip<span className="text-purple-600">Maker</span>
+                            </span>
+                        </div>
+                        
+                        {appStep === 'preview' && (
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setAppStep('upload')} className="text-sm font-medium text-slate-500 hover:text-slate-900 px-4 py-2">
+                                Buat Baru
+                            </button>
+                            <button className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-all">
+                                <Download className="w-4 h-4" /> Export
+                            </button>
+                        </div>
+                        )}
+                    </nav>
+
+                    <main className="flex-1 flex flex-col relative">
+                        {appStep === 'upload' && <UploadStep onUpload={handleFileUpload} />}
+                        {appStep === 'processing' && <ProcessingStep onComplete={() => setAppStep('preview')} />}
+                        {appStep === 'preview' && <PreviewStep files={uploadedFiles} />}
+                    </main>
                 </div>
-              ) : (
-                // Inner Page Content
-                <div className="flex-1">
-                  <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-slate-100">Koleksi Musim Ini</h2>
-                  <div className="w-full h-48 bg-slate-100 rounded-lg mb-6 flex items-center justify-center border border-slate-200">
-                     <ImageIcon className="w-8 h-8 text-slate-300"/>
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed text-justify">
-                    Desain yang dihasilkan secara otomatis menggunakan kecerdasan buatan, memastikan setiap gambar dan teks berada pada komposisi yang sempurna.
-                  </p>
-                  <div className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">
-                    Halaman {currentPage}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Halaman Kanan */}
-            <div className="w-[280px] sm:w-[350px] md:w-[450px] aspect-[1/1.4] bg-white p-8 md:p-12 shadow-[inset_15px_0_30px_rgba(0,0,0,0.04)] rounded-r-sm relative flex flex-col">
-               <div className="flex-1">
-                  <h2 className="text-xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-slate-100">Detail Spesifikasi</h2>
-                  <div className="space-y-4">
-                    <div className="h-4 bg-slate-100 rounded w-full"></div>
-                    <div className="h-4 bg-slate-100 rounded w-5/6"></div>
-                    <div className="h-4 bg-slate-100 rounded w-4/6"></div>
-                  </div>
-                  
-                  {/* AI Enhancement Mockup */}
-                  <div className="mt-8 bg-gradient-to-br from-indigo-50 to-purple-50 border border-purple-100 p-4 rounded-xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 bg-purple-500 text-white text-[10px] font-bold px-2 py-1 rounded-bl-lg flex items-center gap-1">
-                      <Wand2 className="w-3 h-3"/> AI Enhanced
+            );
+        }
+
+        function UploadStep({ onUpload }) {
+            const [isDragging, setIsDragging] = useState(false);
+            const fileInputRef = useRef(null);
+
+            const onDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+            const onDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+            const onDrop = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    onUpload(e.dataTransfer.files);
+                }
+            };
+
+            return (
+                <div className="flex-1 flex items-center justify-center p-6 animate-fade-in">
+                    <div className="max-w-3xl w-full">
+                        <div className="text-center mb-10">
+                            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-4">
+                                Jadikan Gambar Sebagai Flipbook
+                            </h1>
+                            <p className="text-lg text-slate-500 max-w-xl mx-auto">
+                                <strong className="text-slate-800">Pilih beberapa gambar (JPG/PNG) sekaligus</strong> dari perangkat Anda. Sistem akan menyusunnya secara nyata menjadi halaman flipbook.
+                            </p>
+                        </div>
+
+                        <div 
+                            onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+                            onClick={() => fileInputRef.current.click()}
+                            className={`border-4 border-dashed rounded-3xl p-12 text-center cursor-pointer transition-all duration-200 group
+                                ${isDragging ? 'border-purple-500 bg-purple-50 scale-[1.02]' : 'border-slate-300 bg-white hover:border-purple-400 hover:bg-slate-50 shadow-sm'}`}
+                        >
+                            <input type="file" ref={fileInputRef} onChange={(e) => onUpload(e.target.files)} className="hidden" multiple accept=".png, .jpg, .jpeg" />
+                            
+                            <div className="flex justify-center mb-6">
+                                <div className={`p-5 rounded-full transition-colors ${isDragging ? 'bg-purple-100 text-purple-600' : 'bg-slate-100 text-slate-500 group-hover:bg-purple-50 group-hover:text-purple-600'}`}>
+                                    <UploadCloud className="w-12 h-12" />
+                                </div>
+                            </div>
+                            
+                            <h3 className="text-2xl font-bold text-slate-900 mb-2">Tarik Gambar Kesini</h3>
+                            <p className="text-slate-500 mb-8">Pilih beberapa foto untuk dijadikan halaman (Disarankan orientasi Potret/Berdiri)</p>
+                            
+                            <div className="flex items-center justify-center gap-6 text-sm font-medium text-slate-400">
+                                <span className="flex items-center gap-1.5"><FileImage className="w-4 h-4"/> Multi-Upload Mendukung JPG/PNG</span>
+                            </div>
+                        </div>
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800 mb-2">Teks Resolusi Tinggi</h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      Tulisan dalam dokumen ini telah diperjelas dan ditingkatkan keterbacaannya oleh mesin AI kami.
-                    </p>
-                  </div>
-
-                  <div className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">
-                    Halaman {currentPage + 1}
-                  </div>
                 </div>
-            </div>
+            );
+        }
 
-            {/* Efek Garis Buku (Binding) di Tengah */}
-            <div className="absolute inset-y-0 left-1/2 w-8 -ml-4 bg-gradient-to-r from-transparent via-slate-900/10 to-transparent z-20 pointer-events-none"></div>
-          </div>
-        </div>
+        function ProcessingStep({ onComplete }) {
+            const [progress, setProgress] = useState(0);
+            const [status, setStatus] = useState("Menyiapkan gambar Anda...");
 
-        {/* Kontrol Navigasi Halaman */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 z-20 bg-white/80 backdrop-blur-md px-6 py-3 rounded-full shadow-lg border border-slate-200">
-          <button 
-            onClick={prevPage}
-            disabled={currentPage <= 1}
-            className="p-2 text-slate-600 hover:text-purple-600 hover:bg-white rounded-full transition-all disabled:opacity-30"
-          >
-            <ChevronLeft className="w-6 h-6"/>
-          </button>
-          
-          <span className="text-sm font-bold text-slate-700 w-24 text-center font-mono">
-            {currentPage} - {Math.min(currentPage + 1, totalPages)} <span className="text-slate-400">/ {totalPages}</span>
-          </span>
-          
-          <button 
-            onClick={nextPage}
-            disabled={currentPage >= totalPages - 1}
-            className="p-2 text-slate-600 hover:text-purple-600 hover:bg-white rounded-full transition-all disabled:opacity-30"
-          >
-            <ChevronRight className="w-6 h-6"/>
-          </button>
-        </div>
-      </div>
+            useEffect(() => {
+                const statuses = ["Menyusun urutan halaman...", "Membangun efek 3D...", "Selesai!"];
+                let currentProgress = 0;
+                
+                const interval = setInterval(() => {
+                    currentProgress += 2;
+                    if (currentProgress > 100) currentProgress = 100;
+                    setProgress(currentProgress);
 
-      {/* Sidebar Pengaturan AI (Kanan) */}
-      <div className="w-80 bg-white border-l border-slate-200 shadow-xl z-30 flex flex-col overflow-y-auto hidden lg:flex">
-        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <Settings className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900">Pengaturan AI</h3>
-            <p className="text-xs text-slate-500">Sesuaikan hasil akhir</p>
-          </div>
-        </div>
+                    if(currentProgress > 30) setStatus(statuses[0]);
+                    if(currentProgress > 70) setStatus(statuses[1]);
 
-        <div className="p-5 flex-1 space-y-6">
-          {/* AI Background Toggle */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div className="flex justify-between items-center mb-3">
-              <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-purple-500"/>
-                AI Auto-Background
-              </label>
-              {/* Toggle Switch */}
-              <button 
-                onClick={() => setAiBgEnabled(!aiBgEnabled)}
-                className={`w-11 h-6 rounded-full transition-colors relative ${aiBgEnabled ? 'bg-purple-600' : 'bg-slate-300'}`}
-              >
-                <div className={`absolute top-1 bg-white w-4 h-4 rounded-full transition-transform ${aiBgEnabled ? 'left-6' : 'left-1'}`}></div>
-              </button>
-            </div>
-            <p className="text-xs text-slate-500">AI akan menganalisis warna sampul Anda dan menghasilkan latar belakang yang cocok.</p>
-          </div>
+                    if (currentProgress === 100) {
+                        setStatus(statuses[2]);
+                        clearInterval(interval);
+                        setTimeout(() => onComplete(), 500);
+                    }
+                }, 40);
 
-          {/* AI Enhancements List */}
-          <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Optimasi yang Diterapkan</h4>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Upscale Kualitas Gambar</p>
-                  <p className="text-xs text-slate-500">Menjernihkan teks & gambar raster.</p>
+                return () => clearInterval(interval);
+            }, [onComplete]);
+
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 animate-zoom-in">
+                    <div className="w-24 h-24 relative mb-8">
+                        <div className="absolute inset-0 border-4 border-slate-100 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-purple-600 rounded-full border-t-transparent animate-spin" style={{ animationDuration: '1.5s' }}></div>
+                        <div className="absolute inset-0 flex items-center justify-center"><Sparkles className="w-8 h-8 text-purple-600 animate-pulse" /></div>
+                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Sedang Merender</h2>
+                    <p className="text-slate-500 mb-8 font-medium animate-pulse">{status}</p>
+                    <div className="w-full max-w-md bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 h-2.5 rounded-full transition-all duration-200 ease-out" style={{ width: `${progress}%` }}></div>
+                    </div>
                 </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Ekstraksi Halaman Cerdas</p>
-                  <p className="text-xs text-slate-500">Memisahkan halaman PDF secara otomatis.</p>
+            );
+        }
+
+        function PreviewStep({ files }) {
+            // Logika untuk memastikan halaman berjumlah genap (karena buku ada kiri dan kanan)
+            const [currentPage, setCurrentPage] = useState(0); 
+            // Kita atur agar total halaman bisa memuat semua file gambar
+            const totalPages = files.length > 0 ? (files.length % 2 === 0 ? files.length : files.length + 1) : 2;
+            const [aiBgEnabled, setAiBgEnabled] = useState(false);
+
+            const nextPage = () => setCurrentPage(p => Math.min(p + 2, totalPages - 2));
+            const prevPage = () => setCurrentPage(p => Math.max(p - 2, 0));
+
+            // Mengambil file untuk halaman kiri dan kanan berdasarkan index yang aktif
+            const leftPageFile = files[currentPage];
+            const rightPageFile = files[currentPage + 1];
+
+            // Fungsi pembantu untuk merender isi halaman
+            const renderPageContent = (file, pageNum, isLeft) => {
+                if (!file) {
+                    return (
+                        <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/50 p-6 text-center">
+                            <ImageIcon className="w-12 h-12 text-slate-200 mb-4" />
+                            <p className="text-slate-400 font-medium text-sm">Halaman Kosong</p>
+                            <span className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">Hal {pageNum}</span>
+                        </div>
+                    );
+                }
+
+                if (file.isImage) {
+                    return (
+                        <div className="w-full h-full relative group bg-black rounded-sm overflow-hidden flex items-center justify-center">
+                            {/* Menampilkan Gambar ASLI yang diunggah */}
+                            <img src={file.url} alt={`Halaman ${pageNum}`} className="w-full h-full object-cover" />
+                            <span className="absolute bottom-4 right-4 bg-black/50 text-white px-2 py-1 rounded text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity">
+                                Hal {pageNum}
+                            </span>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex-1 flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+                        <p className="text-red-500 font-medium text-sm mb-2">Hanya mendukung format Gambar</p>
+                        <p className="text-slate-600 text-xs">File PDF memerlukan backend server untuk dirender di preview ini.</p>
+                        <span className="absolute bottom-6 left-0 w-full text-center text-xs text-slate-400 font-mono">Hal {pageNum}</span>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="flex-1 flex overflow-hidden animate-fade-in bg-slate-200">
+                    <div className="flex-1 flex flex-col relative">
+                        {/* Latar Belakang AI (Opsional) */}
+                        <div className={`absolute inset-0 transition-all duration-1000 ${
+                            aiBgEnabled ? 'bg-[url("https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?q=80&w=2000&auto=format&fit=crop")] bg-cover bg-center opacity-60 blur-sm' : 'bg-slate-300'
+                        }`}></div>
+
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-white/50 flex items-center gap-4 z-20">
+                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors"><Maximize2 className="w-4 h-4" /></button>
+                            <div className="w-px h-4 bg-slate-300"></div>
+                            <button className="p-2 text-slate-500 hover:text-purple-600 rounded-full hover:bg-purple-50 transition-colors"><Share2 className="w-4 h-4" /></button>
+                        </div>
+
+                        {/* Viewer 3D */}
+                        <div className="flex-1 flex items-center justify-center p-4 relative z-10 perspective-1000">
+                            <div className="relative flex shadow-[0_30px_60px_rgba(0,0,0,0.3)] rounded-sm transition-transform duration-500 hover:scale-[1.02]">
+                                
+                                {/* Halaman Kiri */}
+                                <div className="w-[300px] sm:w-[350px] md:w-[450px] aspect-[1/1.414] bg-white border-r border-slate-300 rounded-l-sm relative origin-right flex flex-col book-shadow-left overflow-hidden">
+                                    {renderPageContent(leftPageFile, currentPage + 1, true)}
+                                </div>
+                                
+                                {/* Halaman Kanan */}
+                                <div className="w-[300px] sm:w-[350px] md:w-[450px] aspect-[1/1.414] bg-white rounded-r-sm relative flex flex-col book-shadow-right overflow-hidden">
+                                    {renderPageContent(rightPageFile, currentPage + 2, false)}
+                                </div>
+                                
+                                {/* Garis Buku (Binding) di Tengah */}
+                                <div className="absolute inset-y-0 left-1/2 w-12 -ml-6 bg-gradient-to-r from-black/5 via-black/20 to-black/5 z-20 pointer-events-none"></div>
+                            </div>
+                        </div>
+
+                        {/* Kontrol Navigasi Bawah */}
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 z-20 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full shadow-lg border border-slate-200">
+                            <button onClick={prevPage} disabled={currentPage <= 0} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-30"><ChevronLeft className="w-6 h-6"/></button>
+                            <span className="text-sm font-bold text-slate-700 w-32 text-center font-mono">
+                                Hal {currentPage + 1}-{currentPage + 2} <span className="text-slate-400 text-xs">/ {totalPages}</span>
+                            </span>
+                            <button onClick={nextPage} disabled={currentPage >= totalPages - 2} className="p-2 text-slate-600 hover:text-purple-600 hover:bg-slate-100 rounded-full transition-all disabled:opacity-30"><ChevronRight className="w-6 h-6"/></button>
+                        </div>
+                    </div>
+
+                    {/* Sidebar Pengaturan */}
+                    <div className="w-80 bg-white border-l border-slate-200 shadow-xl z-30 flex flex-col overflow-y-auto hidden lg:flex">
+                        <div className="p-5 border-b border-slate-100 flex items-center gap-3 bg-slate-50">
+                            <div className="p-2 bg-purple-100 rounded-lg"><Settings className="w-5 h-5 text-purple-600" /></div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">Pengaturan Studio</h3>
+                                <p className="text-xs text-slate-500">{files.length} Gambar Dimuat</p>
+                            </div>
+                        </div>
+                        <div className="p-5 flex-1 space-y-6">
+                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <div className="flex justify-between items-center mb-3">
+                                    <label className="text-sm font-bold text-slate-700 flex items-center gap-2"><ImageIcon className="w-4 h-4 text-purple-500"/>AI Background</label>
+                                    <button onClick={() => setAiBgEnabled(!aiBgEnabled)} className={`w-11 h-6 rounded-full transition-colors relative ${aiBgEnabled ? 'bg-purple-600' : 'bg-slate-300'}`}>
+                                        <div className={`absolute top-1 bg-white w-4 h-4 rounded-full transition-transform ${aiBgEnabled ? 'left-6' : 'left-1'}`}></div>
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500">Gunakan AI untuk mengatur latar belakang studio agar sesuai dengan mood buku Anda.</p>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Daftar Halaman</h4>
+                                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                    {files.map((f, i) => (
+                                        <div key={i} className="flex items-center gap-3 bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                                            <div className="w-10 h-10 bg-slate-100 rounded overflow-hidden">
+                                                {f.isImage ? <img src={f.url} className="w-full h-full object-cover"/> : <FileImage className="w-6 h-6 m-2 text-slate-300"/>}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-bold text-slate-700 truncate">{f.name}</p>
+                                                <p className="text-[10px] text-slate-400">Halaman {i + 1}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              </li>
-              <li className="flex items-start gap-3">
-                <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-slate-800">Efek WebGL 3D</p>
-                  <p className="text-xs text-slate-500">Animasi lipatan buku yang realistis.</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
-        
-        {/* Export Button inside Sidebar */}
-        <div className="p-5 border-t border-slate-100 bg-slate-50">
-           <button className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2">
-            Simpan & Publikasikan
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
